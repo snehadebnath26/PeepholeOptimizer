@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peephole Optimizer</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+
+<div class="container">
+
+    <header class="header">
+        <h1>Peephole Optimizer</h1>
+        <p>LLVM-based compiler optimization analysis</p>
+    </header>
+
+
+    <div id="input-section">
+
+        <div class="card">
+
+            <div class="section-header">
+                <h2>Input C Program</h2>
+                <span class="section-note">C source code</span>
+            </div>
+
+            <p class="description">
+                Enter a C program to generate LLVM IR and analyze
+                peephole optimization patterns.
+            </p>
+
+            <div class="examples">
+
+                <span class="examples-label">Examples:</span>
+
+                <button type="button"
+                        onclick="loadExample('basic')">
+                    Basic Arithmetic
+                </button>
+
+                <button type="button"
+                        onclick="loadExample('division')">
+                    Division
+                </button>
+
+                <button type="button"
+                        onclick="loadExample('bitwise')">
+                    Bitwise
+                </button>
+
+                <button type="button"
+                        onclick="resetCode()">
+                    Reset
+                </button>
+
+            </div>
+
+            <form action="/analyze"
+                  method="post"
+                  onsubmit="startAnalysis()">
+
+                <textarea
+                        id="code"
+                        name="code"
+                        rows="14"
+                        required
+                        th:if="${code != null}"
+                        th:text="${code}"></textarea>
+
+                <textarea
+                        id="code"
+                        name="code"
+                        rows="14"
+                        required
+                        th:if="${code == null}">int calculate(int a) {
+    int x = a + 0;
+    int y = x * 1;
+    int z = y - 0;
+    return z;
+}</textarea>
+
+                <button type="submit"
+                        id="analyze-button"
+                        class="analyze-button">
+
+                    <span id="button-text">
+                        Analyze & Optimize
+                    </span>
+
+                    <span id="button-loader"
+                          class="button-loader">
+                    </span>
+
+                </button>
+
+            </form>
+
+            <div id="processing"
+                 class="processing">
+
+                <div class="processing-spinner"></div>
+
+                <div>
+                    <strong>Analyzing program...</strong>
+                    <p>
+                        Compiling C code and applying LLVM optimization.
+                    </p>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="small-note">
+            Clang is used to generate LLVM IR and LLVM InstCombine is
+            used for peephole optimization.
+        </div>
+
+    </div>
+
+
+    <div id="results-section"
+         th:if="${before != null}"
+         class="results-section">
+
+        <div class="results-header">
+
+            <div>
+                <span class="complete-text">Analysis complete</span>
+                <h2>Optimization Results</h2>
+                <p>Comparison of the LLVM IR before and after optimization.</p>
+            </div>
+
+        </div>
+
+
+        <div class="tabs">
+
+            <button class="tab-button active"
+                    onclick="openTab(event, 'overview')">
+                Overview
+            </button>
+
+            <button class="tab-button"
+                    onclick="openTab(event, 'candidates')">
+                Candidates
+            </button>
+
+            <button class="tab-button"
+                    onclick="openTab(event, 'llvm')">
+                LLVM IR
+            </button>
+
+            <button class="tab-button"
+                    onclick="openTab(event, 'flow')">
+                Flow
+            </button>
+
+        </div>
+
+
+        <div id="overview"
+             class="tab-content active">
+
+            <div class="card">
+
+                <div class="section-header">
+                    <h2>Input Program</h2>
+                </div>
+
+                <pre class="code-block"
+                     th:text="${code}">
+                </pre>
+
+            </div>
+
+
+            <div class="stats-grid">
+
+                <div class="stat-card">
+                    <div class="stat-number"
+                         th:text="${beforeCount}">
+                        0
+                    </div>
+
+                    <div class="stat-label">
+                        Instructions Before
+                    </div>
+                </div>
+
+
+                <div class="stat-card">
+                    <div class="stat-number"
+                         th:text="${afterCount}">
+                        0
+                    </div>
+
+                    <div class="stat-label">
+                        Instructions After
+                    </div>
+                </div>
+
+
+                <div class="stat-card">
+                    <div class="stat-number"
+                         th:text="${arithmeticCount}">
+                        0
+                    </div>
+
+                    <div class="stat-label">
+                        Arithmetic Instructions
+                    </div>
+                </div>
+
+
+                <div class="stat-card">
+                    <div class="stat-number reduction-number"
+                         th:text="${reduction + '%'}">
+                        0%
+                    </div>
+
+                    <div class="stat-label">
+                        Instruction Reduction
+                    </div>
+                </div>
+
+            </div>
+
+
+            <div class="card">
+
+                <div class="section-header">
+                    <h2>Instruction Comparison</h2>
+                </div>
+
+                <p class="description">
+                    Number of LLVM instructions detected before and after
+                    InstCombine optimization.
+                </p>
+
+
+                <div class="comparison-row">
+
+                    <div class="comparison-title">
+                        <span>Before Optimization</span>
+                        <strong th:text="${beforeCount}">0</strong>
+                    </div>
+
+                    <div class="bar-background">
+
+                        <div class="bar before-bar"
+                             th:style="'width:' + (${beforeCount > 0 ? (beforeCount * 100.0 / beforeCount) : 0}) + '%'">
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="comparison-row">
+
+                    <div class="comparison-title">
+                        <span>After Optimization</span>
+                        <strong th:text="${afterCount}">0</strong>
+                    </div>
+
+                    <div class="bar-background">
+
+                        <div class="bar after-bar"
+                             th:style="'width:' + (${beforeCount > 0 ? (afterCount * 100.0 / beforeCount) : 0}) + '%'">
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="card">
+
+                <div class="section-header">
+                    <h2>Detected Peephole Optimizations</h2>
+                </div>
+
+                <p class="description">
+                    Patterns detected in the unoptimized LLVM IR.
+                </p>
+
+
+                <div th:if="${optimizations != null and !optimizations.isEmpty()}">
+
+                    <div class="optimization-item"
+                         th:each="optimization, iteration : ${optimizations}">
+
+                        <div class="optimization-number"
+                             th:text="${iteration.count}">
+                            1
+                        </div>
+
+                        <div>
+                            <div class="optimization-title"
+                                 th:text="${optimization}">
+                                Optimization
+                            </div>
+
+                            <p>
+                                This arithmetic or bitwise operation can
+                                be simplified during peephole optimization.
+                            </p>
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div th:if="${optimizations == null or optimizations.isEmpty()}">
+
+                    <p class="no-result">
+                        No predefined peephole optimization pattern was detected.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div id="candidates"
+             class="tab-content">
+
+            <div class="card">
+
+                <div class="section-header">
+
+                    <div>
+                        <h2>Candidate Instructions</h2>
+                        <p class="header-description">
+                            Instructions extracted from the unoptimized LLVM IR.
+                        </p>
+                    </div>
+
+                    <span class="candidate-total"
+                          th:text="${candidates != null ? candidates.size() : 0}">
+                        0
+                    </span>
+
+                </div>
+
+
+                <div th:if="${candidates != null and !candidates.isEmpty()}">
+
+                    <div class="candidate-item"
+                         th:each="candidate, iteration : ${candidates}">
+
+                        <div class="candidate-number"
+                             th:text="${iteration.count}">
+                            1
+                        </div>
+
+                        <div class="candidate-content">
+
+                            <div class="candidate-operation"
+                                 th:text="${candidate.operation}">
+                                ADD
+                            </div>
+
+                            <pre class="candidate-code"
+                                 th:text="${candidate.instruction}">
+                            </pre>
+
+                            <div class="candidate-details">
+
+                                <div>
+                                    <strong>Pattern:</strong>
+                                    <span th:text="${candidate.pattern}">
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <strong>Potential simplification:</strong>
+                                    <span th:text="${candidate.simplification}">
+                                    </span>
+                                </div>
+
+                            </div>
+
+                            <p th:text="${candidate.explanation}">
+                                Candidate instruction.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div th:if="${candidates == null or candidates.isEmpty()}">
+
+                    <p class="no-result">
+                        No candidate instructions were extracted.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div id="llvm"
+             class="tab-content">
+
+            <div class="ir-grid">
+
+                <div class="card">
+
+                    <div class="ir-heading">
+                        <div>
+                            <h2>LLVM IR Before</h2>
+                            <span>Unoptimized</span>
+                        </div>
+                    </div>
+
+                    <p class="description">
+                        LLVM intermediate representation generated from
+                        the input C program.
+                    </p>
+
+                    <pre class="ir-block"
+                         th:text="${before}">
+                    </pre>
+
+                </div>
+
+
+                <div class="card">
+
+                    <div class="ir-heading">
+                        <div>
+                            <h2>LLVM IR After</h2>
+                            <span class="optimized-label">Optimized</span>
+                        </div>
+                    </div>
+
+                    <p class="description">
+                        LLVM IR after InstCombine optimization.
+                    </p>
+
+                    <pre class="ir-block"
+                         th:text="${after}">
+                    </pre>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div id="flow"
+             class="tab-content">
+
+            <div class="card">
+
+                <div class="section-header">
+                    <h2>Analysis Flow</h2>
+                </div>
+
+                <p class="description">
+                    Main stages used by the application.
+                </p>
+
+
+                <div class="flow">
+
+                    <div class="flow-step">
+                        <div class="flow-box">1</div>
+                        <h3>C Program</h3>
+                        <p>Input source code</p>
+                    </div>
+
+                    <div class="flow-arrow">→</div>
+
+                    <div class="flow-step">
+                        <div class="flow-box">2</div>
+                        <h3>Clang</h3>
+                        <p>Generate LLVM IR</p>
+                    </div>
+
+                    <div class="flow-arrow">→</div>
+
+                    <div class="flow-step">
+                        <div class="flow-box">3</div>
+                        <h3>Candidate Extraction</h3>
+                        <p>Find arithmetic patterns</p>
+                    </div>
+
+                    <div class="flow-arrow">→</div>
+
+                    <div class="flow-step">
+                        <div class="flow-box">4</div>
+                        <h3>InstCombine</h3>
+                        <p>Apply optimization</p>
+                    </div>
+
+                    <div class="flow-arrow">→</div>
+
+                    <div class="flow-step">
+                        <div class="flow-box final-box">5</div>
+                        <h3>Optimized IR</h3>
+                        <p>Compare results</p>
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="card simple-explanation">
+
+                <h2>What the application does</h2>
+
+                <p>
+                    The application takes a C program, compiles it into
+                    LLVM intermediate representation, extracts arithmetic
+                    and bitwise candidate instructions, applies LLVM
+                    InstCombine optimization, and compares the resulting
+                    instructions.
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <div class="new-analysis">
+
+            <button type="button"
+                    onclick="analyzeAnother()">
+                ← Analyze Another Program
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+    function startAnalysis() {
+
+        const button = document.getElementById("analyze-button");
+        const buttonText = document.getElementById("button-text");
+        const buttonLoader = document.getElementById("button-loader");
+        const processing = document.getElementById("processing");
+
+        button.disabled = true;
+
+        buttonText.textContent = "Analyzing...";
+
+        buttonLoader.style.display = "inline-block";
+
+        processing.classList.add("show");
+    }
+
+
+    function loadExample(type) {
+
+        const codeArea = document.querySelector("#code");
+
+        if (!codeArea) {
+            return;
+        }
+
+        if (type === "basic") {
+
+            codeArea.value =
+                `int calculate(int a) {
+    int x = a + 0;
+    int y = x * 1;
+    int z = y - 0;
+    return z;
+}`;
+
+        }
+
+        if (type === "division") {
+
+            codeArea.value =
+                `int calculate(int a) {
+    int x = a / 1;
+    int y = x * 1;
+    return y;
+}`;
+
+        }
+
+        if (type === "bitwise") {
+
+            codeArea.value =
+                `int calculate(int a) {
+    int x = a & 0;
+    int y = x | 0;
+    int z = y ^ 0;
+    return z;
+}`;
+
+        }
+
+    }
+
+
+    function resetCode() {
+
+        const codeArea = document.querySelector("#code");
+
+        if (!codeArea) {
+            return;
+        }
+
+        codeArea.value =
+            `int calculate(int a) {
+    int x = a + 0;
+    int y = x * 1;
+    int z = y - 0;
+    return z;
+}`;
+
+    }
+
+
+    function analyzeAnother() {
+
+        window.location.href = "/";
+
+    }
+
+
+    function openTab(event, tabName) {
+
+        const contents =
+            document.querySelectorAll(".tab-content");
+
+        const buttons =
+            document.querySelectorAll(".tab-button");
+
+        contents.forEach(function(content) {
+            content.classList.remove("active");
+        });
+
+        buttons.forEach(function(button) {
+            button.classList.remove("active");
+        });
+
+        const selected =
+            document.getElementById(tabName);
+
+        if (selected) {
+            selected.classList.add("active");
+        }
+
+        event.currentTarget.classList.add("active");
+
+    }
+
+
+    window.addEventListener("load", function() {
+
+        const results =
+            document.getElementById("results-section");
+
+        const input =
+            document.getElementById("input-section");
+
+        if (results && input) {
+
+            input.style.display = "none";
+
+            setTimeout(function() {
+
+                results.classList.add("results-visible");
+
+                results.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start"
+                });
+
+            }, 120);
+
+        }
+
+    });
+
+</script>
+
+</body>
+
+</html>
